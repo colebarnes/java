@@ -1,0 +1,10 @@
+common/.classpath
+common/.project
+common/.settings/org.eclipse.core.resources.prefs
+/common/.settings
+crypto/.classpath
+/crypto/.settings
+crypto/.project
+gui/.classpath
+/gui/.settings
+gui/.project
