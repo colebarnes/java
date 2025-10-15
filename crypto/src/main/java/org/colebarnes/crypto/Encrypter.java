@@ -21,35 +21,74 @@
 
 package org.colebarnes.crypto;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
-public class Encrypter {
+import org.colebarnes.common.ByteUtils;
+import org.colebarnes.common.zip.ZipWriter;
+import org.colebarnes.crypto.common.CryptoException;
+import org.colebarnes.crypto.common.CryptoUtils;
+
+public class Encrypter implements Closeable {
+	public static final String CURRENT_VERSION = "0.0.1";
+
+	public static final String PARAM_VERSION = "version";
+	public static final String PARAM_METHOD = "method";
+
+	private static final String PARAM_PBE_PREFIX = "pbe";
+	public static final String PARAM_PBE_SALT = Encrypter.PARAM_PBE_PREFIX + "/salt";
+	public static final String PARAM_PBE_ITERATIONS = Encrypter.PARAM_PBE_PREFIX + "/method";
+	public static final String PARAM_PBE_ALGORITHM = Encrypter.PARAM_PBE_PREFIX + "/algorithm";
+
+	public static final String PARAM_KEY_SIZE = "key_size";
+	public static final String PARAM_IV = "iv";
+	public static final String PARAM_CIPHER_TEXT = "cipher_text";
+
+	public static final String PARAM_CIPHER_ALGORITHM = "cipher/algorithm";
+	public static final String PARAM_CIPHER_MODE = "cipher/mode";
+	public static final String PARAM_CIPHER_PADDING = "cipher/padding";
+
+	public static final String METHOD_PBE = "pbe";
+	public static final String METHOD_PKI = "pki";
+
 	public static Encrypter getSerpentInstance() {
-		return new Encrypter("serpent", "gcm", "nopadding", 256);
+		return new Encrypter("serpent", 256);
 	}
 
 	public static Encrypter getAesInstance() {
-		return new Encrypter("aes", "gcm", "nopadding", 256);
+		return new Encrypter("aes", 256);
 	}
 
 	public static Encrypter getTwofishInstance() {
-		return new Encrypter("twofish", "gcm", "nopadding", 256);
+		return new Encrypter("twofish", 256);
 	}
 
 	private String algorithm;
-	private String mode;
-	private String padding;
+	private final String mode;
+	private final String padding;
 	private int keySize;
 
-	private Encrypter(String algorithm, String mode, String padding, int keySize) {
-		// TODO: check input
+	private Encrypter(String algorithm, int keySize) {
 		this.algorithm = algorithm;
-		this.mode = mode;
-		this.padding = padding;
+		this.mode = "gcm";
+		this.padding = "nopadding";
 		this.keySize = keySize;
 	}
 
@@ -73,17 +112,74 @@ public class Encrypter {
 		return String.format("%s/%s/%s", this.getCipherAlgorithm(), this.getCipherMode(), this.getCipherPadding());
 	}
 
-	public byte[] encrypt(byte[] plainText, char[] password) {
-		// TODO: implement
-		return null;
+	public byte[] encrypt(byte[] plainText, char[] password) throws CryptoException {
+		try (ByteArrayInputStream bais = new ByteArrayInputStream(plainText); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+			this.encrypt(bais, baos, password);
+			return baos.toByteArray();
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting data.", e);
+		}
 	}
 
-	public File encrypt(File plainText, char[] password) {
-		// TODO: implement
-		return null;
+	public File encrypt(File plainText, char[] password) throws CryptoException {
+		File cipherText = new File(plainText.getAbsolutePath() + ".enc");
+		try (FileInputStream fis = new FileInputStream(plainText); FileOutputStream fos = new FileOutputStream(cipherText)) {
+			this.encrypt(fis, fos, password);
+			return cipherText;
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting file.", e);
+		}
 	}
-	
-	private void encrypt(InputStream in, OutputStream out, SecretKey key) {
-		// TODO: implement
+
+	private void encrypt(InputStream in, OutputStream out, char[] password) throws CryptoException {
+		try (ZipWriter writer = ZipWriter.getInstance(out)) {
+			writer.write(Encrypter.PARAM_VERSION, Encrypter.CURRENT_VERSION);
+			writer.write(Encrypter.PARAM_METHOD, Encrypter.METHOD_PBE);
+
+			// TODO: do not hard code pbe salt length
+			byte[] salt = ByteUtils.random(64);
+			writer.write(Encrypter.PARAM_PBE_SALT, salt);
+
+			// TODO: do not hard code pbe iteration count
+			int iterations = 10000;
+			writer.write(Encrypter.PARAM_PBE_ITERATIONS, iterations);
+
+			// TODO: do not hard code key size ...
+			int keySize = 256;
+			writer.write(Encrypter.PARAM_KEY_SIZE, keySize);
+			writer.write(Encrypter.PARAM_CIPHER_ALGORITHM, this.getCipherAlgorithm());
+			writer.write(Encrypter.PARAM_CIPHER_MODE, this.getCipherMode());
+			writer.write(Encrypter.PARAM_CIPHER_PADDING, this.getCipherPadding());
+
+			// TODO: do not hard code pbe algorithm ...
+			writer.write(Encrypter.PARAM_PBE_ALGORITHM, "PBKDF2WithHmacSHA256");
+			SecretKey key = CryptoUtils.pkbdf2Sha256(password, salt, iterations, keySize, this.getCipherAlgorithm());
+			encrypt(in, writer, key);
+		} catch (NoSuchAlgorithmException | InvalidKeySpecException | IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting data.", e);
+		}
+	}
+
+	private void encrypt(InputStream in, ZipWriter writer, SecretKey key) throws CryptoException {
+		try {
+			// TODO: do not hard code iv size ...
+			byte[] iv = CryptoUtils.random(12);
+			writer.write(Encrypter.PARAM_IV, iv);
+			GCMParameterSpec params = new GCMParameterSpec(128, iv);
+
+			Cipher cipher = Cipher.getInstance(this.getCipherTransform(), CryptoUtils.getCipherProvider());
+			cipher.init(Cipher.ENCRYPT_MODE, key, params);
+
+			try (CipherInputStream cin = new CipherInputStream(in, cipher)) {
+				writer.write(Encrypter.PARAM_CIPHER_TEXT, cin);
+			}
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting file", e);
+		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		// nothing to do?
 	}
 }

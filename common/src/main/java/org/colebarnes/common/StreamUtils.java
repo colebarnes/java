@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.colebarnes.common.logger.Logger;
+
 public class StreamUtils {
 	public static int DEFAULT_BUFFER_LEN = 1024;
 
@@ -33,17 +35,19 @@ public class StreamUtils {
 	}
 
 	public static long copy(InputStream in, OutputStream out, int bufferLen) throws IOException {
+		Logger.entering();
 		// TODO: check inputs
-		
+
 		byte[] buffer = new byte[bufferLen];
 		int bytesRead = 0;
 		long totalBytesRead = 0;
-		
-		while((bytesRead = in.read(buffer))>=0) {
+
+		while ((bytesRead = in.read(buffer)) >= 0) {
 			out.write(buffer, 0, bytesRead);
-			totalBytesRead+=bytesRead;
+			totalBytesRead += bytesRead;
 		}
-		
+
+		Logger.exiting(totalBytesRead);
 		return totalBytesRead;
 	}
 }

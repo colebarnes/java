@@ -21,28 +21,55 @@
 
 package org.colebarnes.crypto.common;
 
+import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.Security;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
+
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+import org.colebarnes.common.ByteUtils;
 import org.colebarnes.common.logger.Logger;
 
 public class CryptoUtils {
 	public static Provider getCipherProvider() {
 		return CryptoUtils.getBouncyCastleProvider();
 	}
-	
+
 	public static synchronized Provider getBouncyCastleProvider() {
-		Logger.info("getting bcfips provider");
+		Logger.trace("getting bcfips provider");
 		Provider provider = Security.getProvider("BCFIPS");
-		
-		if(provider==null) {
+
+		if (provider == null) {
 			Logger.info("creating and registering new BCFIPS provider ...");
 			// TODO: fips mode???
 			provider = new BouncyCastleFipsProvider();
 			Security.insertProviderAt(provider, 1);
 		}
-		
+
 		return provider;
+	}
+
+	public static SecretKey pkbdf2Sha256(char[] password, byte[] salt, int iterations, int keySize, String keyCipherAlgorithm) throws NoSuchAlgorithmException, InvalidKeySpecException {
+		// TODO: check input
+		SecretKeyFactory f = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256", CryptoUtils.getBouncyCastleProvider());
+		KeySpec ks = new PBEKeySpec(password, salt, iterations, keySize);
+
+		return new SecretKeySpec(f.generateSecret(ks).getEncoded(), keyCipherAlgorithm);
+	}
+
+	public static byte[] random(int size) {
+		// FIXME: do not use insecure random like this!!!
+		return ByteUtils.random(size);
+	}
+
+	public static void random(byte[] bytes) {
+		// FIXME: do not use insecure random like this!!!
+		ByteUtils.random(bytes);
 	}
 }
