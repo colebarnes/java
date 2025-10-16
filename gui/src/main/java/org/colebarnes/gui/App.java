@@ -22,14 +22,19 @@
 package org.colebarnes.gui;
 
 import org.colebarnes.common.logger.Logger;
+import org.colebarnes.gui.common.GuiUtils;
 
 public class App {
 	public static void main(String[] args) {
-    	Logger.setLogLevel(Logger.TRACE);
+		Logger.setLogLevel(Logger.TRACE);
 		Logger.entering();
-		
-		Logger.info("Hello!");
-		
+
+		GuiUtils.installDarculaLaf();
+		GuiUtils.info("info");
+		GuiUtils.message("message");
+		GuiUtils.warn("warn");
+		GuiUtils.error("error");
+
 		Logger.exiting();
-    }
+	}
 }
