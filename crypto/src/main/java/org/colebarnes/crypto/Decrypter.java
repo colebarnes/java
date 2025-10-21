@@ -30,6 +30,7 @@ import java.io.OutputStream;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.spec.InvalidKeySpecException;
 
 import javax.crypto.Cipher;
@@ -97,6 +98,39 @@ public class Decrypter implements Closeable {
 		}
 	}
 
+	public byte[] decryptToBytes(PrivateKey privateKey) throws CryptoException {
+		try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+			this.decrypt(baos, privateKey);
+			return baos.toByteArray();
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error decrypting data.", e);
+		}
+	}
+
+	public void decryptToFile(File plainText, PrivateKey privateKey) throws CryptoException {
+		try (FileOutputStream fos = new FileOutputStream(plainText)) {
+			this.decrypt(fos, privateKey);
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error decrypting data.", e);
+		}
+	}
+
+	private void decrypt(OutputStream out, PrivateKey privateKey) throws CryptoException {
+		try {
+			String version = this.reader.readString(Encrypter.PARAM_VERSION);
+			String method = this.reader.readString(Encrypter.PARAM_METHOD);
+
+			byte[] wrappedKey = this.reader.readBytes(Encrypter.PARAM_PKI_WRAPPED_KEY);
+			String cipherAlgorithm = this.reader.readString(Encrypter.PARAM_CIPHER_ALGORITHM);
+
+			// TODO: do not hard code pbe algorithm ...
+			SecretKey key = CryptoUtils.unwrapKey(wrappedKey, cipherAlgorithm, privateKey);
+			this.decrypt(out, key);
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error decrypting data.", e);
+		}
+	}
+
 	private String getCipherTransform() throws IOException {
 		String alg = this.reader.readString(Encrypter.PARAM_CIPHER_ALGORITHM);
 		String mode = this.reader.readString(Encrypter.PARAM_CIPHER_MODE);
@@ -110,7 +144,7 @@ public class Decrypter implements Closeable {
 			byte[] iv = this.reader.readBytes(Encrypter.PARAM_IV);
 			GCMParameterSpec params = new GCMParameterSpec(128, iv);
 
-			Cipher cipher = Cipher.getInstance(this.getCipherTransform(), CryptoUtils.getCipherProvider());
+			Cipher cipher = Cipher.getInstance(this.getCipherTransform(), CryptoUtils.getBouncyCastleProvider());
 			cipher.init(Cipher.DECRYPT_MODE, key, params);
 
 			try (CipherInputStream cin = new CipherInputStream(this.reader.getInputStream(Encrypter.PARAM_CIPHER_TEXT), cipher)) {

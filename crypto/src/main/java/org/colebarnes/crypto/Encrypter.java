@@ -33,6 +33,8 @@ import java.io.OutputStream;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 
 import javax.crypto.Cipher;
@@ -57,6 +59,10 @@ public class Encrypter implements Closeable {
 	public static final String PARAM_PBE_ITERATIONS = Encrypter.PARAM_PBE_PREFIX + "/method";
 	public static final String PARAM_PBE_ALGORITHM = Encrypter.PARAM_PBE_PREFIX + "/algorithm";
 
+	private static final String PARAM_PKI_PREFIX = "pki";
+	public static final String PARAM_PKI_RECIPIENT = Encrypter.PARAM_PKI_PREFIX + "/recipeint";
+	public static final String PARAM_PKI_WRAPPED_KEY = Encrypter.PARAM_PKI_PREFIX + "/wrapped_key";
+
 	public static final String PARAM_KEY_SIZE = "key_size";
 	public static final String PARAM_IV = "iv";
 	public static final String PARAM_CIPHER_TEXT = "cipher_text";
@@ -65,8 +71,8 @@ public class Encrypter implements Closeable {
 	public static final String PARAM_CIPHER_MODE = "cipher/mode";
 	public static final String PARAM_CIPHER_PADDING = "cipher/padding";
 
-	public static final String METHOD_PBE = "pbe";
-	public static final String METHOD_PKI = "pki";
+	public static final String METHOD_PBE = Encrypter.PARAM_PBE_PREFIX;
+	public static final String METHOD_PKI = Encrypter.PARAM_PKI_PREFIX;
 
 	public static Encrypter getSerpentInstance() {
 		return new Encrypter("serpent", 256);
@@ -133,7 +139,6 @@ public class Encrypter implements Closeable {
 
 	private void encrypt(InputStream in, OutputStream out, char[] password) throws CryptoException {
 		try (ZipWriter writer = ZipWriter.getInstance(out)) {
-			writer.write(Encrypter.PARAM_VERSION, Encrypter.CURRENT_VERSION);
 			writer.write(Encrypter.PARAM_METHOD, Encrypter.METHOD_PBE);
 
 			// TODO: do not hard code pbe salt length
@@ -144,30 +149,62 @@ public class Encrypter implements Closeable {
 			int iterations = 10000;
 			writer.write(Encrypter.PARAM_PBE_ITERATIONS, iterations);
 
-			// TODO: do not hard code key size ...
-			int keySize = 256;
-			writer.write(Encrypter.PARAM_KEY_SIZE, keySize);
-			writer.write(Encrypter.PARAM_CIPHER_ALGORITHM, this.getCipherAlgorithm());
-			writer.write(Encrypter.PARAM_CIPHER_MODE, this.getCipherMode());
-			writer.write(Encrypter.PARAM_CIPHER_PADDING, this.getCipherPadding());
-
 			// TODO: do not hard code pbe algorithm ...
 			writer.write(Encrypter.PARAM_PBE_ALGORITHM, "PBKDF2WithHmacSHA256");
-			SecretKey key = CryptoUtils.pkbdf2Sha256(password, salt, iterations, keySize, this.getCipherAlgorithm());
+			SecretKey key = CryptoUtils.pkbdf2Sha256(password, salt, iterations, this.getKeySize(), this.getCipherAlgorithm());
 			encrypt(in, writer, key);
 		} catch (NoSuchAlgorithmException | InvalidKeySpecException | IOException e) {
 			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting data.", e);
 		}
 	}
 
+	public byte[] encrypt(byte[] plainText, X509Certificate recipient) throws CryptoException {
+		try (ByteArrayInputStream bais = new ByteArrayInputStream(plainText); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+			this.encrypt(bais, baos, recipient);
+			return baos.toByteArray();
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting data.", e);
+		}
+	}
+
+	public File encrypt(File plainText, X509Certificate recipient) throws CryptoException {
+		File cipherText = new File(plainText.getAbsolutePath() + ".enc");
+		try (FileInputStream fis = new FileInputStream(plainText); FileOutputStream fos = new FileOutputStream(cipherText)) {
+			this.encrypt(fis, fos, recipient);
+			return cipherText;
+		} catch (IOException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting file.", e);
+		}
+	}
+
+	private void encrypt(InputStream in, OutputStream out, X509Certificate recipient) throws CryptoException {
+		try (ZipWriter writer = ZipWriter.getInstance(out)) {
+			writer.write(Encrypter.PARAM_METHOD, Encrypter.METHOD_PKI);
+			SecretKey key = CryptoUtils.randomSecretKey(this.getCipherAlgorithm(), this.getKeySize());
+			encrypt(in, writer, key);
+
+			byte[] wrappedKey = CryptoUtils.wrapKey(key, recipient.getPublicKey());
+			writer.write(Encrypter.PARAM_PKI_WRAPPED_KEY, wrappedKey);
+			writer.write(Encrypter.PARAM_PKI_RECIPIENT, recipient.getEncoded());
+		} catch (IOException | CertificateEncodingException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error encrypting data.", e);
+		}
+	}
+
 	private void encrypt(InputStream in, ZipWriter writer, SecretKey key) throws CryptoException {
 		try {
+			writer.write(Encrypter.PARAM_VERSION, Encrypter.CURRENT_VERSION);
+			writer.write(Encrypter.PARAM_KEY_SIZE, this.getKeySize());
+			writer.write(Encrypter.PARAM_CIPHER_ALGORITHM, this.getCipherAlgorithm());
+			writer.write(Encrypter.PARAM_CIPHER_MODE, this.getCipherMode());
+			writer.write(Encrypter.PARAM_CIPHER_PADDING, this.getCipherPadding());
+
 			// TODO: do not hard code iv size ...
 			byte[] iv = CryptoUtils.random(12);
 			writer.write(Encrypter.PARAM_IV, iv);
 			GCMParameterSpec params = new GCMParameterSpec(128, iv);
 
-			Cipher cipher = Cipher.getInstance(this.getCipherTransform(), CryptoUtils.getCipherProvider());
+			Cipher cipher = Cipher.getInstance(this.getCipherTransform(), CryptoUtils.getBouncyCastleProvider());
 			cipher.init(Cipher.ENCRYPT_MODE, key, params);
 
 			try (CipherInputStream cin = new CipherInputStream(in, cipher)) {
