@@ -75,4 +75,12 @@ public class ByteUtils {
 
 		return ByteBuffer.wrap(bytes).getLong();
 	}
+
+	public static String toHex(byte[] bytes) {
+		StringBuilder hexString = new StringBuilder();
+		for (byte b : bytes) {
+			hexString.append(String.format("%02X", b));
+		}
+		return hexString.toString();
+	}
 }

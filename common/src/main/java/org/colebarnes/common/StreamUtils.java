@@ -43,7 +43,10 @@ public class StreamUtils {
 		long totalBytesRead = 0;
 
 		while ((bytesRead = in.read(buffer)) >= 0) {
-			out.write(buffer, 0, bytesRead);
+			if (out != null) {
+				out.write(buffer, 0, bytesRead);
+			}
+
 			totalBytesRead += bytesRead;
 		}
 

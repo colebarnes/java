@@ -87,6 +87,12 @@ public class App {
 		App.pbeTest();
 		App.pkiTest();
 
+		try {
+			Logger.info("%s", Hasher.sha256().hash("hello world!"));
+		} catch (CryptoException e) {
+			Logger.error(e);
+		}
+
 		Logger.exiting();
 	}
 }
