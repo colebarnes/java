@@ -29,6 +29,9 @@ import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.Provider.Service;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.colebarnes.common.ByteUtils;
 import org.colebarnes.common.StreamUtils;
@@ -37,6 +40,18 @@ import org.colebarnes.crypto.common.CryptoException;
 import org.colebarnes.crypto.common.CryptoUtils;
 
 public class Hasher {
+	public static Set<String> getSupportedAlgorithms() {
+		Set<String> algorithms = new TreeSet<>();
+
+		for (Service service : CryptoUtils.getBouncyCastleProvider().getServices()) {
+			if (service.getType().equalsIgnoreCase("MessageDigest")) {
+				algorithms.add(service.getAlgorithm());
+			}
+		}
+
+		return algorithms;
+	}
+
 	public static Hasher sha256() {
 		return Hasher.getInstance("sha256");
 	}

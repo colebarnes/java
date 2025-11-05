@@ -21,16 +21,26 @@
 
 package org.colebarnes.crypto.common;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.Provider.Service;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.Security;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,22 +54,31 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
+import org.bouncycastle.crypto.fips.FipsDRBG;
+import org.bouncycastle.crypto.util.BasicEntropySourceProvider;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.colebarnes.common.ByteUtils;
 import org.colebarnes.common.logger.Logger;
 
 public class CryptoUtils {
+	public static final String PROP_FIPS = "org.colebarnes.fips";
+	public static final String PROP_FIPS_DFLT = "false";
+
 	public static synchronized Provider getBouncyCastleProvider() {
 		Logger.trace("getting bcfips provider");
 		Provider provider = Security.getProvider("BCFIPS");
 
 		if (provider == null) {
 			Logger.info("creating and registering new BCFIPS provider ...");
-			// TODO: fips mode???
+
+			CryptoServicesRegistrar.setSecureRandom(FipsDRBG.SHA512_HMAC.fromEntropySource(new BasicEntropySourceProvider(new SecureRandom(), true)).build(null, true));
+
 			provider = new BouncyCastleFipsProvider();
 			Security.insertProviderAt(provider, 1);
 		}
 
+		// CryptoServicesRegistrar.setApprovedOnlyMode(isFipsMode());
 		return provider;
 	}
 
@@ -77,8 +96,7 @@ public class CryptoUtils {
 	}
 
 	public static void random(byte[] bytes) {
-		// FIXME: do not use insecure random like this!!!
-		ByteUtils.random(bytes);
+		CryptoServicesRegistrar.getSecureRandom().nextBytes(bytes);
 	}
 
 	public static SecretKey randomSecretKey(String algorithm, int keySize) {
@@ -140,6 +158,33 @@ public class CryptoUtils {
 					Logger.info("\t\t%s", algorithm);
 				}
 			}
+		}
+	}
+
+	public static void convertP12ToBcfks(File p12File, char[] password) throws CryptoException {
+		try (FileInputStream p12In = new FileInputStream(p12File); FileOutputStream bcfksOut = new FileOutputStream(String.format("%s.bcfks", p12File.getAbsolutePath()))) {
+			KeyStore ksP12 = KeyStore.getInstance("PKCS12", CryptoUtils.getBouncyCastleProvider());
+			KeyStore ksBcfks = KeyStore.getInstance("BCFKS", CryptoUtils.getBouncyCastleProvider());
+
+			ksP12.load(p12In, password);
+			ksBcfks.load(null);
+
+			Enumeration<String> aliases = ksP12.aliases();
+			while (aliases.hasMoreElements()) {
+				String alias = aliases.nextElement();
+
+				if (ksP12.isCertificateEntry(alias)) {
+					ksBcfks.setCertificateEntry(alias, ksP12.getCertificate(alias));
+				} else if (ksP12.isKeyEntry(alias)) {
+					ksBcfks.setKeyEntry(alias, ksP12.getKey(alias, password), password, ksP12.getCertificateChain(alias));
+				} else {
+					// nothing to do ???
+				}
+			}
+
+			ksBcfks.store(bcfksOut, password);
+		} catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException e) {
+			throw new CryptoException(CryptoException.ERROR_UNKNOWN, "Error converting PKCS12 to BCFKS.", e);
 		}
 	}
 }

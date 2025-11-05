@@ -39,9 +39,9 @@ import org.colebarnes.crypto.common.CryptoUtils;
 
 public class App {
 	private static void pbeTest() {
-		try (Encrypter enc = Encrypter.getSerpentInstance()) {
+		try (Encrypter enc = Encrypter.getAesInstance()) {
 			byte[] plainText = StringUtils.toBytes("This is my super secret message! - pbe");
-			char[] password = "Qwerty_123".toCharArray();
+			char[] password = "Qwerty_1234567890!?".toCharArray();
 
 			byte[] cipherText = enc.encrypt(plainText, password);
 
@@ -55,11 +55,11 @@ public class App {
 	}
 
 	private static void pkiTest() {
-		try (Encrypter enc = Encrypter.getSerpentInstance(); FileInputStream fin = new FileInputStream("/home/cbarnes/Desktop/colebarnes.p12")) {
+		try (Encrypter enc = Encrypter.getAesInstance(); FileInputStream fin = new FileInputStream("/home/cbarnes/Desktop/colebarnes.bcfks")) {
 			byte[] plainText = StringUtils.toBytes("This is my super secret message! - pki");
 			char[] password = "Qwerty_123".toCharArray();
 
-			KeyStore ks = KeyStore.getInstance("PKCS12", CryptoUtils.getBouncyCastleProvider());
+			KeyStore ks = KeyStore.getInstance("BCFKS", CryptoUtils.getBouncyCastleProvider());
 			ks.load(fin, password);
 
 			Enumeration<String> aliases = ks.aliases();
@@ -84,13 +84,19 @@ public class App {
 		Logger.setLogLevel(Logger.INFO);
 		Logger.entering();
 
-		App.pbeTest();
-		App.pkiTest();
-
 		try {
-			Logger.info("%s", Hasher.sha256().hash("hello world!"));
-		} catch (CryptoException e) {
-			Logger.error(e);
+			App.pbeTest();
+			// App.pkiTest();
+
+			for (String algorithm : Hasher.getSupportedAlgorithms()) {
+				try {
+					Logger.info("[%s][%s]", algorithm, Hasher.getInstance(algorithm).hash("Hello world!!!"));
+				} catch (CryptoException e) {
+					e.printStackTrace();
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 		Logger.exiting();
