@@ -21,6 +21,8 @@
 
 package org.colebarnes.gui;
 
+import java.io.File;
+
 import org.colebarnes.common.logger.Logger;
 import org.colebarnes.gui.common.GuiUtils;
 
@@ -30,10 +32,7 @@ public class App {
 		Logger.entering();
 
 		GuiUtils.installDarculaLaf();
-		GuiUtils.info("info");
-		GuiUtils.message("message");
-		GuiUtils.warn("warn");
-		GuiUtils.error("error");
+		File file = GuiUtils.promptForFile();
 
 		Logger.exiting();
 	}
