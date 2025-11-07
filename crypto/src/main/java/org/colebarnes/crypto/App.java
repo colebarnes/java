@@ -21,80 +21,15 @@
 
 package org.colebarnes.crypto;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Enumeration;
-
-import org.colebarnes.common.StringUtils;
 import org.colebarnes.common.logger.Logger;
-import org.colebarnes.crypto.common.CryptoException;
-import org.colebarnes.crypto.common.CryptoUtils;
 
 public class App {
-	private static void pbeTest() {
-		try (Encrypter enc = Encrypter.getAesInstance()) {
-			byte[] plainText = StringUtils.toBytes("This is my super secret message! - pbe");
-			char[] password = "Qwerty_1234567890!?".toCharArray();
-
-			byte[] cipherText = enc.encrypt(plainText, password);
-
-			try (Decrypter dec = Decrypter.getInstance(cipherText)) {
-				byte[] data = dec.decryptToBytes(password);
-				Logger.info("decrypted data: %s", StringUtils.fromBytes(data));
-			}
-		} catch (IOException | CryptoException e) {
-			e.printStackTrace();
-		}
-	}
-
-	private static void pkiTest() {
-		try (Encrypter enc = Encrypter.getAesInstance(); FileInputStream fin = new FileInputStream("/home/cbarnes/Desktop/colebarnes.bcfks")) {
-			byte[] plainText = StringUtils.toBytes("This is my super secret message! - pki");
-			char[] password = "Qwerty_123".toCharArray();
-
-			KeyStore ks = KeyStore.getInstance("BCFKS", CryptoUtils.getBouncyCastleProvider());
-			ks.load(fin, password);
-
-			Enumeration<String> aliases = ks.aliases();
-			while (aliases.hasMoreElements()) {
-				String alias = aliases.nextElement();
-
-				X509Certificate cert = (X509Certificate) ks.getCertificate(alias);
-				byte[] cipherText = enc.encrypt(plainText, cert);
-
-				try (Decrypter dec = Decrypter.getInstance(cipherText)) {
-					PrivateKey privateKey = (PrivateKey) ks.getKey(alias, password);
-					byte[] data = dec.decryptToBytes(privateKey);
-					Logger.info("decrypted data: %s", StringUtils.fromBytes(data));
-				}
-			}
-		} catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | CryptoException e) {
-			e.printStackTrace();
-		}
-	}
-
 	public static void main(String[] args) {
 		Logger.setLogLevel(Logger.INFO);
 		Logger.entering();
 
 		try {
-			App.pbeTest();
-			App.pkiTest();
-
-//			for (String algorithm : Hasher.getSupportedAlgorithms()) {
-//				try {
-//					Logger.info("[%s][%s]", algorithm, Hasher.getInstance(algorithm).hash("Hello world!!!"));
-//				} catch (CryptoException e) {
-//					e.printStackTrace();
-//				}
-//			}
+			Logger.info("crypto");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
