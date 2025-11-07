@@ -1,2 +1,2 @@
-# java
+# Java Library
 Java/Maven projects
