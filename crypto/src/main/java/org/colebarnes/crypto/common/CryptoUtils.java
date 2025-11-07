@@ -78,7 +78,6 @@ public class CryptoUtils {
 			Security.insertProviderAt(provider, 1);
 		}
 
-		// CryptoServicesRegistrar.setApprovedOnlyMode(isFipsMode());
 		return provider;
 	}
 

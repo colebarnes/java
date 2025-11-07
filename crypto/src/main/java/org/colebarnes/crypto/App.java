@@ -86,15 +86,15 @@ public class App {
 
 		try {
 			App.pbeTest();
-			// App.pkiTest();
+			App.pkiTest();
 
-			for (String algorithm : Hasher.getSupportedAlgorithms()) {
-				try {
-					Logger.info("[%s][%s]", algorithm, Hasher.getInstance(algorithm).hash("Hello world!!!"));
-				} catch (CryptoException e) {
-					e.printStackTrace();
-				}
-			}
+//			for (String algorithm : Hasher.getSupportedAlgorithms()) {
+//				try {
+//					Logger.info("[%s][%s]", algorithm, Hasher.getInstance(algorithm).hash("Hello world!!!"));
+//				} catch (CryptoException e) {
+//					e.printStackTrace();
+//				}
+//			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
