@@ -24,6 +24,7 @@ package org.colebarnes.gui.common;
 import java.awt.Component;
 import java.io.File;
 
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
 import org.colebarnes.common.logger.Logger;
@@ -33,6 +34,8 @@ import com.github.weisj.darklaf.theme.DarculaTheme;
 import com.github.weisj.darklaf.theme.Theme;
 
 public class GuiUtils {
+	public static final String DEFAULT_TITLE = ".:: org.colebarnes ::.";
+
 	public static void installDarculaLaf() {
 		GuiUtils.installLafTheme(new DarculaTheme());
 	}
@@ -79,7 +82,7 @@ public class GuiUtils {
 	}
 
 	private static void prompt(Component parent, String message, int type) {
-		JOptionPane.showMessageDialog(parent, message, ".:: org.colebarnes ::.", type);
+		JOptionPane.showMessageDialog(parent, message, GuiUtils.DEFAULT_TITLE, type);
 	}
 
 	public static File promptForFile() {
@@ -91,8 +94,16 @@ public class GuiUtils {
 	}
 
 	public static File promptForFile(Component parent, File parentDirectory) {
-		// TODO: implement
-		GuiUtils.warn("file prompting not implemented!");
-		return null;
+		JFileChooser dlg = new JFileChooser(parentDirectory);
+		dlg.setDialogTitle(GuiUtils.DEFAULT_TITLE);
+		dlg.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		dlg.setMultiSelectionEnabled(false);
+
+		switch (dlg.showDialog(parent, "Choose File")) {
+		case JFileChooser.APPROVE_OPTION:
+			return dlg.getSelectedFile();
+		default:
+			return null;
+		}
 	}
 }
