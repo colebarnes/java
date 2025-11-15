@@ -34,6 +34,12 @@ public class App {
 		GuiUtils.installDarculaLaf();
 		File file = GuiUtils.promptForFile();
 
+		if (file == null) {
+			Logger.info("no file selected ...");
+		} else {
+			Logger.info("Selected file: %s", file.getAbsolutePath());
+		}
+
 		Logger.exiting();
 	}
 }
