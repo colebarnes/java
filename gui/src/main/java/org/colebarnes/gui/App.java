@@ -27,19 +27,22 @@ import org.colebarnes.common.logger.Logger;
 import org.colebarnes.gui.common.GuiUtils;
 
 public class App {
-	public static void main(String[] args) {
-		Logger.setLogLevel(Logger.TRACE);
-		Logger.entering();
+  public static void main(String[] args) {
+    Logger.setLogLevel(Logger.TRACE);
+    Logger.entering();
 
-		GuiUtils.installDarculaLaf();
-		File file = GuiUtils.promptForFile();
+    GuiUtils.installDarculaLaf();
+    File[] files = GuiUtils.promptForFiles(true);
 
-		if (file == null) {
-			Logger.info("no file selected ...");
-		} else {
-			Logger.info("Selected file: %s", file.getAbsolutePath());
-		}
+    if (files == null) {
+      Logger.info("no file selected ...");
+    } else {
+      Logger.info("Selected files:");
+      for (File file : files) {
+        Logger.info("%s", file.getAbsolutePath());
+      }
+    }
 
-		Logger.exiting();
-	}
+    Logger.exiting();
+  }
 }
