@@ -25,27 +25,29 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 public class StringUtils {
-	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+  public static String fromBytes(byte[] data) {
+    return StringUtils.fromBytes(data, StringUtils.defaultCharset());
+  }
 
-	public static String fromBytes(byte[] data) {
-		return StringUtils.fromBytes(data, StringUtils.DEFAULT_CHARSET);
-	}
+  public static String fromBytes(byte[] data, Charset charset) {
+    // TODO: check inputs
+    return new String(data, charset);
+  }
 
-	public static String fromBytes(byte[] data, Charset charset) {
-		// TODO: check inputs
-		return new String(data, charset);
-	}
+  public static byte[] toBytes(String str) {
+    return StringUtils.toBytes(str, StringUtils.defaultCharset());
+  }
 
-	public static byte[] toBytes(String str) {
-		return StringUtils.toBytes(str, StringUtils.DEFAULT_CHARSET);
-	}
+  public static byte[] toBytes(String str, Charset charset) {
+    // TODO: check inputs
+    return str.getBytes(charset);
+  }
 
-	public static byte[] toBytes(String str, Charset charset) {
-		// TODO: check inputs
-		return str.getBytes(charset);
-	}
+  public static boolean isNullOrBlank(String str) {
+    return str == null || str.isBlank();
+  }
 
-	public static boolean isNullOrBlank(String str) {
-		return str == null || str.isBlank();
-	}
+  public static Charset defaultCharset() {
+    return StandardCharsets.UTF_8;
+  }
 }

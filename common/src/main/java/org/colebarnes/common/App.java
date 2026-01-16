@@ -21,22 +21,29 @@
 
 package org.colebarnes.common;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.colebarnes.common.logger.Logger;
 
 public class App {
-	private static void testLog() {
-		Logger.setLogLevel(Logger.TRACE);
-		Logger.entering();
+  private static void testLog() {
+    Logger.setLogLevel(Logger.TRACE);
+    Logger.entering();
 
-		Logger.error("error");
-		Logger.warn("warn");
-		Logger.info("info");
-		Logger.trace("trace");
+    Map<String, String> data = new HashMap<>();
+    data.put("data", "My dog has fleas.");
+    data.put("foo", "bar");
+    data.put("special_characters", "&=/:@#$%!&@(#)*!");
+    String queryString = HttpUtils.urlEncode(data);
 
-		Logger.exiting();
-	}
+    Logger.info("%s", queryString);
+    Logger.info("%s", HttpUtils.urlDecode(queryString).toString());
 
-	public static void main(String[] args) {
-		App.testLog();
-	}
+    Logger.exiting();
+  }
+
+  public static void main(String[] args) {
+    App.testLog();
+  }
 }
