@@ -21,6 +21,12 @@
 
 package org.colebarnes.common;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -74,5 +80,38 @@ public class HttpUtils {
     }
 
     return data;
+  }
+
+  @Deprecated
+  public static byte[] legacyPost(String destination, Map<String, String> postData) throws IOException {
+    // TODO: check input
+    URL url = new URL(destination);
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+    conn.setRequestMethod("POST");
+    conn.setDoOutput(true);
+
+    byte[] data = StringUtils.toBytes(HttpUtils.urlEncode(postData));
+    int length = data.length;
+
+    conn.setFixedLengthStreamingMode(length);
+    conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+    conn.connect();
+
+    try (OutputStream out = conn.getOutputStream()) {
+      out.write(data);
+    }
+
+    try (InputStream in = conn.getInputStream(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      int bytesRead = 0;
+      byte[] buffer = new byte[1024];
+
+      while ((bytesRead = in.read(buffer)) >= 0) {
+        out.write(buffer, 0, bytesRead);
+      }
+
+      out.flush();
+      return out.toByteArray();
+    }
   }
 }
